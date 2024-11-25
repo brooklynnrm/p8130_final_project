@@ -84,3 +84,32 @@ sixth.stage =
 T.stage + N.stage / sixth.stage
 ```
 
+Now let's look at the information pertaining to the tumors.
+
+```{r}
+# tumor size
+breastcancer_df |>
+  ggplot(aes(x = tumor_size)) +
+  geom_histogram() +
+  labs(title = "Distribution of Tumor Size",
+       x = "tumor size (mm)")
+
+# estrogen status
+estrog = 
+  breastcancer_df |>
+  ggplot(aes(x = estrogen_status, fill = estrogen_status)) +
+  geom_bar() +
+  labs(title = "Estrogen Status of Tumor",
+       x = "estrogen status")
+
+# progesterone status
+prog = 
+  breastcancer_df |>
+  ggplot(aes(x = progesterone_status, fill = progesterone_status)) +
+  geom_bar() +
+  labs(title = "Progesterone Status of Tumor",
+       x = "progesterone status")
+
+estrog + prog
+```
+
