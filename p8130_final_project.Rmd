@@ -8,7 +8,7 @@ output: html_document
 library(tidyverse)
 library(patchwork)
 library(survival)
-#library(survminer)
+library(survminer)
 
 knitr::opts_chunk$set(
   comment = '', fig.width = 8, fig.height = 6, out.width = "90%"
@@ -123,16 +123,34 @@ prog =
 
 estrog + prog
 ```
-
 ## Statistical Analysis
 
-Now let's start to look at the relationships between the variables and their affect on risk of death.
+Now let's start to look at the relationships between the variables and their affect on risk of death. Let's fit a cox regression model for age, race and T.stage as predictors. This test also assumes that the risk is constant over time, so we need to validate this assumption with proportional hazards.
 
 ```{r}
 # fit a cox regression model
 
-breastcancer_df |>
-  coxph(Surv(survival_months,status) ~ age + race + marital_status, data = _) |>
-    broom::tidy()
+cox_fit = breastcancer_df |>
+  coxph(Surv(survival_months,status) ~ age + race, data = _) 
+
+cox_fit |>
+  broom::tidy() |>
+  knitr::kable()
+
+# check if the assumptions are valid
+cox.zph(cox_fit)
+```
+
+```{r}
+# Kaplan-Meier survival curve by t_stage
+km_fit <- survfit(Surv(survival_months, status) ~ t_stage, data = breastcancer_df)
+
+# Plot the survival curves
+ggsurvplot(km_fit, 
+           data = breastcancer_df,
+           xlab = "Months", 
+           ylab = "Survival Probability",
+           title = "Kaplan-Meier Survival Curve by T Stage",
+           legend.title = "T Stage")
 ```
 
