@@ -6,6 +6,7 @@ output: html_document
 ---
 ```{r setup, include=FALSE}
 library(tidyverse)
+library(patchwork)
 
 knitr::opts_chunk$set(
   comment = '', fig.width = 8, fig.height = 6, out.width = "90%"
@@ -21,3 +22,65 @@ options(
 scale_colour_discrete = scale_colour_viridis_d
 scale_fill_discrete = scale_fill_viridis_d
 ```
+
+The dataset we will be working with is from breast cancer patients. We are interested in predicting the risk of death based on many predictors from societal to genetic makeup.
+
+Let's read in the data and take a look.
+
+```{r}
+breastcancer_df = read_csv("Project_2_data.csv") |>
+  janitor::clean_names() |>
+  mutate(sixth_stage = factor(x6th_stage)) |>
+  select(-x6th_stage)
+
+head(breastcancer_df)
+```
+
+We have 16 variables relating to these patietns with breast cancer. The dataset includes `r breastcancer_df |> filter(status == "Alive") |>count(status) |> pull(n)` individuals that are alive and `r breastcancer_df |> filter(status == "Dead") |>count(status) |> pull(n)` that are dead. The average age of patients is `r breastcancer_df |> pull(age) |> mean() |> round()`. The races that are considered are `r unique(breastcancer_df$race)` and the marital statuses considered are `r unique(breastcancer_df$marital_status)`.
+
+Let's look at our variables graphically.
+
+```{r}
+# age distribution
+breastcancer_df |>
+  ggplot(aes(x = age)) +
+  geom_histogram(binwidth = 1) +
+  labs(title = "Distribution of Age of Diagnosis")
+
+# marital status distribution
+breastcancer_df |>
+  ggplot(aes(x = marital_status, fill = marital_status)) +
+  geom_bar() +
+  labs(title = "Distribution of Marital Status",
+       x = "marital status")
+
+# race disbtribution
+breastcancer_df |>
+  ggplot(aes(x = race, fill = race)) +
+  geom_bar() +
+  labs(title = "Distribution of Marital Status",
+       x = "race")
+
+T.stage = 
+  breastcancer_df |>
+  ggplot(aes(x = t_stage, fill = t_stage)) +
+  geom_bar() +
+  labs(title = "Distribution of T Stage",
+       x = "t stage")
+N.stage = 
+  breastcancer_df |>
+  ggplot(aes(x = n_stage, fill = n_stage)) +
+  geom_bar() +
+  labs(title = "Distribution of N Stage",
+       x = "n stage") 
+
+sixth.stage = 
+  breastcancer_df |>
+  ggplot(aes(x = sixth_stage, fill = sixth_stage)) +
+  geom_bar() +
+  labs(title = "Distribution of 6th Stage",
+       x = "6th stage")
+
+T.stage + N.stage / sixth.stage
+```
+
