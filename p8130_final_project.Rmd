@@ -7,6 +7,8 @@ output: html_document
 ```{r setup, include=FALSE}
 library(tidyverse)
 library(patchwork)
+library(survival)
+#library(survminer)
 
 knitr::opts_chunk$set(
   comment = '', fig.width = 8, fig.height = 6, out.width = "90%"
@@ -23,6 +25,8 @@ scale_colour_discrete = scale_colour_viridis_d
 scale_fill_discrete = scale_fill_viridis_d
 ```
 
+## Exploratory Analysis and Visualization
+
 The dataset we will be working with is from breast cancer patients. We are interested in predicting the risk of death based on many predictors from societal to genetic makeup.
 
 Let's read in the data and take a look.
@@ -31,12 +35,19 @@ Let's read in the data and take a look.
 breastcancer_df = read_csv("Project_2_data.csv") |>
   janitor::clean_names() |>
   mutate(sixth_stage = factor(x6th_stage)) |>
-  select(-x6th_stage)
+  select(-x6th_stage) |>
+  mutate(
+    across(c(race, marital_status, t_stage, n_stage, differentiate, a_stage, 
+             estrogen_status, progesterone_status, status, sixth_stage), factor),
+    status = case_when(
+    status == "Alive" ~ 0,
+    status == "Dead" ~ 1
+  ))
 
 head(breastcancer_df)
 ```
 
-We have 16 variables relating to these patietns with breast cancer. The dataset includes `r breastcancer_df |> filter(status == "Alive") |>count(status) |> pull(n)` individuals that are alive and `r breastcancer_df |> filter(status == "Dead") |>count(status) |> pull(n)` that are dead. The average age of patients is `r breastcancer_df |> pull(age) |> mean() |> round()`. The races that are considered are `r unique(breastcancer_df$race)` and the marital statuses considered are `r unique(breastcancer_df$marital_status)`.
+We have 16 variables relating to these patietns with breast cancer. The dataset includes `r breastcancer_df |> filter(status == 0) |>count(status) |> pull(n)` individuals that are alive and `r breastcancer_df |> filter(status == 1) |>count(status) |> pull(n)` that are dead. The average age of patients is `r breastcancer_df |> pull(age) |> mean() |> round()`. The races that are considered are `r unique(breastcancer_df$race)` and the marital statuses considered are `r unique(breastcancer_df$marital_status)`.
 
 Let's look at our variables graphically.
 
@@ -111,5 +122,17 @@ prog =
        x = "progesterone status")
 
 estrog + prog
+```
+
+## Statistical Analysis
+
+Now let's start to look at the relationships between the variables and their affect on risk of death.
+
+```{r}
+# fit a cox regression model
+
+breastcancer_df |>
+  coxph(Surv(survival_months,status) ~ age + race + marital_status, data = _) |>
+    broom::tidy()
 ```
 
