@@ -259,6 +259,11 @@ cv_df = cv_df |>
 
   )
 
+cv_df$rmse_tumor[[1]] |>
+  as.data.frame() |>
+  ggplot(aes(x = tumor_size, y = "(0-E)^2/V")) +
+  geom_point()
+
 
 
 ```
