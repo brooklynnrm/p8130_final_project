@@ -218,7 +218,7 @@ Ok, here's the plan
 Now let's start with mapping across all variables!!
 
 ```{r}
-cv_df = crossv_mc(breastcancer_df,100) 
+cv_df = crossv_mc(breastcancer_df,10) 
 
 cv_df = cv_df |>
   mutate(
@@ -242,20 +242,20 @@ cv_df = cv_df |>
     grade_mod = map(train, \(df) coxph(Surv(survival_months,status) ~ grade, data = df)),
     )|>
   mutate(
-    rmse_age = map2_dbl(age_mod, test, \(mod, df) rmse(model = mod, data = df)),
-    rmse_race = map2_dbl(race_mod, test, \(mod, df) rmse(model = mod, data = df)),
-    rmse_marital = map2_dbl(marital_mod, test, \(mod, df) rmse(model = mod, data = df)),
-    rmse_t.stage = map2_dbl(t.stage_mod, test, \(mod, df) rmse(model = mod, data = df)),
-    rmse_n.stage = map2_dbl(n.stage_mod, test, \(mod, df) rmse(model = mod, data = df)),
-    rmse_sixth.stage = map2_dbl(sixth.stage_mod, test, \(mod, df) rmse(model = mod, data = df)),
-    rmse_dif = map2_dbl(dif_mod, test, \(mod, df) rmse(model = mod, data = df)),
-    rmse_tumor = map2_dbl(tumor_mod, test, \(mod, df) rmse(model = mod, data = df)),
-    rmse_region_examined = map2_dbl(region_examined_mod, test, \(mod, df) rmse(model = mod, data = df)),
-    rmse_region_pos = map2_dbl(region_pos_mod, test, \(mod, df) rmse(model = mod, data = df)),
-    rmse_a.stage = map2_dbl(a.stage_mod, test, \(mod, df) rmse(model = mod, data = df)),
-    rmse_estrogen = map2_dbl(estrogen_mod, test, \(mod, df) rmse(model = mod, data = df)),
-    rmse_progesterone = map2_dbl(progesterone_mod, test, \(mod, df) rmse(model = mod, data = df)),
-    rmse_grade = map2_dbl(grade_mod, test, \(mod, df) rmse(model = mod, data = df)),
+    rmse_age = map(test, \(df) survdiff(Surv(survival_months,status) ~ age, data = df)),
+    rmse_race = map(test, \(df) survdiff(Surv(survival_months,status) ~ race, data = df)),
+    rmse_marital = map(test, \(df) survdiff(Surv(survival_months,status) ~ marital_status, data = df)),
+    rmse_t.stage = map(test, \(df) survdiff(Surv(survival_months,status) ~ t_stage, data = df)),
+    rmse_n.stage = map(test, \(df) survdiff(Surv(survival_months,status) ~ n_stage, data = df)),
+    rmse_sixth.stage = map(test, \(df) survdiff(Surv(survival_months,status) ~ sixth_stage, data = df)),
+    rmse_dif = map(test, \(df) survdiff(Surv(survival_months,status) ~ differentiate, data = df)),
+    rmse_tumor = map(test, \(df) survdiff(Surv(survival_months,status) ~ tumor_size, data = df)),
+    rmse_region_examined = map(test, \(df) survdiff(Surv(survival_months,status) ~ regional_node_examined, data = df)),
+    rmse_region_pos = map(test, \(df) survdiff(Surv(survival_months,status) ~ reginol_node_positive, data = df)),
+    rmse_a.stage = map(test, \(df) survdiff(Surv(survival_months,status) ~ a_stage, data = df)),
+    rmse_estrogen = map(test, \(df) survdiff(Surv(survival_months,status) ~ estrogen_status, data = df)),
+    rmse_progesterone = map(test, \(df) survdiff(Surv(survival_months,status) ~ progesterone_status, data = df)),
+    rmse_grade = map(test, \(df) survdiff(Surv(survival_months,status) ~ grade, data = df)),
 
   )
 
