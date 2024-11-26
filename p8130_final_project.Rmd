@@ -4,11 +4,14 @@ author: "Brooklynn McNeil"
 date: "2024-11-25"
 output: html_document
 ---
+
 ```{r setup, include=FALSE}
 library(tidyverse)
 library(patchwork)
 library(survival)
 library(survminer)
+library(modelr)
+library(car)
 
 knitr::opts_chunk$set(
   comment = '', fig.width = 8, fig.height = 6, out.width = "90%"
@@ -37,12 +40,11 @@ breastcancer_df = read_csv("Project_2_data.csv") |>
   mutate(sixth_stage = factor(x6th_stage)) |>
   select(-x6th_stage) |>
   mutate(
-    across(c(race, marital_status, t_stage, n_stage, differentiate, a_stage, 
-             estrogen_status, progesterone_status, status, sixth_stage), factor),
     status = case_when(
     status == "Alive" ~ 0,
-    status == "Dead" ~ 1
-  ))
+    status == "Dead" ~ 1),
+    across(c(race, marital_status, t_stage, n_stage, differentiate, a_stage, 
+             estrogen_status, progesterone_status, sixth_stage), factor))
 
 head(breastcancer_df)
 ```
@@ -95,6 +97,8 @@ sixth.stage =
 T.stage + N.stage / sixth.stage
 ```
 
+It looks like most of
+
 Now let's look at the information pertaining to the tumors.
 
 ```{r}
@@ -123,6 +127,15 @@ prog =
 
 estrog + prog
 ```
+
+Finally, let's look at the distribution of the outcome and address linearity.
+
+```{r}
+breastcancer_df |>
+  ggplot(aes(x = age, y = survival_months, color = status)) +
+  geom_point()
+```
+
 ## Statistical Analysis
 
 Now let's start to look at the relationships between the variables and their affect on risk of death. Let's fit a cox regression model for age, race and T.stage as predictors. This test also assumes that the risk is constant over time, so we need to validate this assumption with proportional hazards.
@@ -136,9 +149,49 @@ cox_fit = breastcancer_df |>
 cox_fit |>
   broom::tidy() |>
   knitr::kable()
+```
 
+Let's check for the assumptions of the cox model.
+
+1.  Proportional hazards assumption
+
+    1.  the effect of the covariates is constant over time
+
+    2.  use `cox.zph()` to test for constant proportions
+
+    3.  use `plot(cox.zph())` to plot, but Cox Regression does not depend on linearity.
+
+2.  Linear relationship between covariates and log hazards.
+
+    1.  asses with scatterplot
+
+3.  Independence of survival times
+
+    1.  If clustering exists, use a frailty model or robust standard errors to account for dependency.
+
+4.  No omitted confounders
+
+    1.  assumes we have included all relevant covariates in the model.
+
+5.  No multicollinearity.
+
+    1.  There should not be high colinearity between covariates.
+
+    2.  use `vif()` variance inflation factor \>5 indicates multicolinearity.
+
+```{r}
 # check if the assumptions are valid
 cox.zph(cox_fit)
+
+# Extract the linear predictor (log-hazards)
+log_hazards <- predict(cox_fit, type = "lp")
+
+# Create a Q-Q plot for log-hazards
+qqnorm(log_hazards, main = "Q-Q Plot of Log-Hazards vs Normal Distribution")
+qqline(log_hazards, col = "red")
+
+# check for mutlicolinearity
+vif(cox_fit)
 ```
 
 ```{r}
@@ -152,5 +205,61 @@ ggsurvplot(km_fit,
            ylab = "Survival Probability",
            title = "Kaplan-Meier Survival Curve by T Stage",
            legend.title = "T Stage")
+```
+
+Ok, here's the plan
+
+- map the survival model across all of the individual variables
+- rule out the unimportant variables
+- start adding in the variables to test if that improves the model (refer to diagnostics lecture)
+- test for an increase in adjusted R squared for the best model
+
+
+Now let's start with mapping across all variables!!
+
+```{r}
+cv_df = crossv_mc(breastcancer_df,100) 
+
+cv_df = cv_df |>
+  mutate(
+    train = map(train, \(i) as.tibble(i)),
+    test = map(test, \(i) as.tibble(i))
+  ) |>
+  mutate(
+    age_mod  = map(train, \(df) coxph(Surv(survival_months,status) ~ age, data = df)),
+    race_mod = map(train, \(df) coxph(Surv(survival_months,status) ~ race, data = df)),
+    marital_mod = map(train, \(df) coxph(Surv(survival_months,status) ~ marital_status, data = df)),
+    t.stage_mod = map(train, \(df) coxph(Surv(survival_months,status) ~ t_stage, data = df)),
+    n.stage_mod = map(train, \(df) coxph(Surv(survival_months,status) ~ n_stage, data = df)),
+    sixth.stage_mod = map(train, \(df) coxph(Surv(survival_months,status) ~ sixth_stage, data = df)),
+    dif_mod = map(train, \(df) coxph(Surv(survival_months,status) ~ differentiate, data = df)),
+    tumor_mod = map(train, \(df) coxph(Surv(survival_months,status) ~ tumor_size, data = df)),
+    region_examined_mod = map(train, \(df) coxph(Surv(survival_months,status) ~ regional_node_examined, data = df)),
+    region_pos_mod = map(train, \(df) coxph(Surv(survival_months,status) ~ reginol_node_positive, data = df)),
+    a.stage_mod = map(train, \(df) coxph(Surv(survival_months,status) ~ a_stage, data = df)),
+    estrogen_mod = map(train, \(df) coxph(Surv(survival_months,status) ~ estrogen_status, data = df)),
+    progesterone_mod = map(train, \(df) coxph(Surv(survival_months,status) ~ progesterone_status, data = df)),
+    grade_mod = map(train, \(df) coxph(Surv(survival_months,status) ~ grade, data = df)),
+    )|>
+  mutate(
+    rmse_age = map2_dbl(age_mod, test, \(mod, df) rmse(model = mod, data = df)),
+    rmse_race = map2_dbl(race_mod, test, \(mod, df) rmse(model = mod, data = df)),
+    rmse_marital = map2_dbl(marital_mod, test, \(mod, df) rmse(model = mod, data = df)),
+    rmse_t.stage = map2_dbl(t.stage_mod, test, \(mod, df) rmse(model = mod, data = df)),
+    rmse_n.stage = map2_dbl(n.stage_mod, test, \(mod, df) rmse(model = mod, data = df)),
+    rmse_sixth.stage = map2_dbl(sixth.stage_mod, test, \(mod, df) rmse(model = mod, data = df)),
+    rmse_dif = map2_dbl(dif_mod, test, \(mod, df) rmse(model = mod, data = df)),
+    rmse_tumor = map2_dbl(tumor_mod, test, \(mod, df) rmse(model = mod, data = df)),
+    rmse_region_examined = map2_dbl(region_examined_mod, test, \(mod, df) rmse(model = mod, data = df)),
+    rmse_region_pos = map2_dbl(region_pos_mod, test, \(mod, df) rmse(model = mod, data = df)),
+    rmse_a.stage = map2_dbl(a.stage_mod, test, \(mod, df) rmse(model = mod, data = df)),
+    rmse_estrogen = map2_dbl(estrogen_mod, test, \(mod, df) rmse(model = mod, data = df)),
+    rmse_progesterone = map2_dbl(progesterone_mod, test, \(mod, df) rmse(model = mod, data = df)),
+    rmse_grade = map2_dbl(grade_mod, test, \(mod, df) rmse(model = mod, data = df)),
+
+  )
+
+
+
 ```
 
