@@ -2,7 +2,7 @@
 title: "p8130_final_project"
 author: "Brooklynn McNeil"
 date: "2024-11-25"
-output: html_document
+output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
@@ -132,8 +132,8 @@ Finally, let's look at the distribution of the outcome and address linearity.
 
 ```{r}
 breastcancer_df |>
-  ggplot(aes(x = age, y = survival_months, color = status)) +
-  geom_point()
+  ggplot(aes(x = age, y = survival_months, color = factor(status))) +
+  geom_point(alpha = 0.7) 
 ```
 
 ## Statistical Analysis
@@ -218,6 +218,33 @@ Ok, here's the plan
 Now let's start with mapping across all variables!!
 
 ```{r}
+models_list = list(
+  age_mod = coxph(Surv(survival_months, status) ~ age, data = breastcancer_df),
+  race_mod = coxph(Surv(survival_months, status) ~ race, data = breastcancer_df),
+  marital_mod = coxph(Surv(survival_months, status) ~ marital_status, data = breastcancer_df),
+  t_stage_mod = coxph(Surv(survival_months, status) ~ t_stage, data = breastcancer_df),
+  n_stage_mod = coxph(Surv(survival_months, status) ~ n_stage, data = breastcancer_df),
+  sixth_stage_mod = coxph(Surv(survival_months, status) ~ sixth_stage, data = breastcancer_df),
+  dif_mod = coxph(Surv(survival_months, status) ~ differentiate, data = breastcancer_df),
+  tumor_mod = coxph(Surv(survival_months, status) ~ tumor_size, data = breastcancer_df),
+  region_examined_mod = coxph(Surv(survival_months, status) ~ regional_node_examined, data = breastcancer_df),
+  region_pos_mod = coxph(Surv(survival_months, status) ~ reginol_node_positive, data = breastcancer_df),
+  a_stage_mod = coxph(Surv(survival_months, status) ~ a_stage, data = breastcancer_df),
+  estrogen_mod = coxph(Surv(survival_months, status) ~ estrogen_status, data = breastcancer_df),
+  progesterone_mod = coxph(Surv(survival_months, status) ~ progesterone_status, data = breastcancer_df),
+  grade_mod = coxph(Surv(survival_months, status) ~ grade, data = breastcancer_df)
+)
+
+# Tidy the models and combine into one data frame
+single_results <- map_dfr(models_list, broom::tidy, .id = "model")
+
+# View combined results
+knitr::kable(single_results)
+```
+
+
+## Validation
+```{r}
 cv_df = crossv_mc(breastcancer_df,10) 
 
 cv_df = cv_df |>
@@ -239,32 +266,6 @@ cv_df = cv_df |>
     a.stage_mod = map(train, \(df) coxph(Surv(survival_months,status) ~ a_stage, data = df)),
     estrogen_mod = map(train, \(df) coxph(Surv(survival_months,status) ~ estrogen_status, data = df)),
     progesterone_mod = map(train, \(df) coxph(Surv(survival_months,status) ~ progesterone_status, data = df)),
-    grade_mod = map(train, \(df) coxph(Surv(survival_months,status) ~ grade, data = df)),
-    )|>
-  mutate(
-    rmse_age = map(test, \(df) survdiff(Surv(survival_months,status) ~ age, data = df)),
-    rmse_race = map(test, \(df) survdiff(Surv(survival_months,status) ~ race, data = df)),
-    rmse_marital = map(test, \(df) survdiff(Surv(survival_months,status) ~ marital_status, data = df)),
-    rmse_t.stage = map(test, \(df) survdiff(Surv(survival_months,status) ~ t_stage, data = df)),
-    rmse_n.stage = map(test, \(df) survdiff(Surv(survival_months,status) ~ n_stage, data = df)),
-    rmse_sixth.stage = map(test, \(df) survdiff(Surv(survival_months,status) ~ sixth_stage, data = df)),
-    rmse_dif = map(test, \(df) survdiff(Surv(survival_months,status) ~ differentiate, data = df)),
-    rmse_tumor = map(test, \(df) survdiff(Surv(survival_months,status) ~ tumor_size, data = df)),
-    rmse_region_examined = map(test, \(df) survdiff(Surv(survival_months,status) ~ regional_node_examined, data = df)),
-    rmse_region_pos = map(test, \(df) survdiff(Surv(survival_months,status) ~ reginol_node_positive, data = df)),
-    rmse_a.stage = map(test, \(df) survdiff(Surv(survival_months,status) ~ a_stage, data = df)),
-    rmse_estrogen = map(test, \(df) survdiff(Surv(survival_months,status) ~ estrogen_status, data = df)),
-    rmse_progesterone = map(test, \(df) survdiff(Surv(survival_months,status) ~ progesterone_status, data = df)),
-    rmse_grade = map(test, \(df) survdiff(Surv(survival_months,status) ~ grade, data = df)),
-
-  )
-
-cv_df$rmse_tumor[[1]] |>
-  as.data.frame() |>
-  ggplot(aes(x = tumor_size, y = "(0-E)^2/V")) +
-  geom_point()
-
-
-
+    grade_mod = map(train, \(df) coxph(Surv(survival_months,status) ~ grade, data = df)))
 ```
 
